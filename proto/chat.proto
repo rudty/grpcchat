@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+option java_package = "org.rudtyz.grpcchat.dto";
+option java_multiple_files = true;
+option go_package = ".;main";
+
+package message;
+
+import "google/protobuf/empty.proto";
+// The greeting service definition.
+service Message {
+  // Sends a greeting
+  rpc ClientSend(SendRequest) returns (SendReply) {}
+  rpc ClientReceive(google.protobuf.Empty) returns (stream ReceiveReply) {}
+}
+
+message SendRequest {
+  string message = 1;
+}
+
+message SendReply {
+    int32 messageId = 1;
+}
+
+message ReceiveReply {
+    string message = 1;
+}
