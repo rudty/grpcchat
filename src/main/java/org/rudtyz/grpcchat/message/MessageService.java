@@ -36,19 +36,21 @@ public class MessageService extends MessageGrpc.MessageImplBase {
                 .setMessage(message)
                 .build();
 
-        clientManager.forEach(client -> {
-            try {
-                client.onNext(broadcastMessage);
-            } catch (StatusRuntimeException e) {
-                if (isCutStatus(e.getStatus())) {
-                    e.printStackTrace();
+        synchronized (this) {
+            clientManager.forEach(client -> {
+                try {
+                    client.onNext(broadcastMessage);
+                } catch (StatusRuntimeException e) {
+                    if (isCutStatus(e.getStatus())) {
+                        e.printStackTrace();
+                    }
                 }
-            }
-        });
+            });
+        }
     }
 
     @Override
-    public synchronized void clientSend(SendRequest request, StreamObserver<SendReply> responseObserver) {
+    public void clientSend(SendRequest request, StreamObserver<SendReply> responseObserver) {
         broadcastMessage(request.getMessage());
 
         responseObserver.onNext(
