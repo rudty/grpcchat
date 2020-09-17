@@ -3,20 +3,24 @@ package org.rudtyz.grpcchat.message;
 import com.google.protobuf.Empty;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
+import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
 import org.lognet.springboot.grpc.GRpcService;
 import org.rudtyz.grpcchat.dto.*;
+import org.springframework.beans.factory.annotation.Autowired;
 
-import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 @GRpcService
 public class MessageService extends MessageGrpc.MessageImplBase {
 
-    AtomicInteger clientId = new AtomicInteger();
-    AtomicInteger messageId = new AtomicInteger();
-    HashMap<Integer, StreamObserver<ReceiveReply>> observers = new HashMap<>();
+    private final ClientManager clientManager;
+    private final AtomicInteger messageId = new AtomicInteger();
+
+    public MessageService(ClientManager clientManager) {
+        this.clientManager = clientManager;
+    }
 
     private boolean isCutStatus(Status status) {
         var code = status.getCode();
@@ -32,24 +36,15 @@ public class MessageService extends MessageGrpc.MessageImplBase {
                 .setMessage(message)
                 .build();
 
-
-        LinkedList<Integer> errorClients = new LinkedList<>();
-
-        for (var kv : observers.entrySet()) {
-            var clientId = kv.getKey();
-            var responseObserver = kv.getValue();
+        clientManager.forEach(client -> {
             try {
-                responseObserver.onNext(broadcastMessage);
+                client.onNext(broadcastMessage);
             } catch (StatusRuntimeException e) {
                 if (isCutStatus(e.getStatus())) {
-                    errorClients.add(clientId);
+                    e.printStackTrace();
                 }
             }
-        }
-
-        for (var k : errorClients) {
-            observers.remove(k);
-        }
+        });
     }
 
     @Override
@@ -66,7 +61,10 @@ public class MessageService extends MessageGrpc.MessageImplBase {
 
     @Override
     public synchronized void clientReceive(Empty request, StreamObserver<ReceiveReply> responseObserver) {
-        observers.put(clientId.incrementAndGet(), responseObserver);
+        // 기본 구현 StreamObserver<ReceiveReply> 으로는
+        // 클라이언트와 연결이 종료될 시 알 수가 없어서
+        var res = (ServerCallStreamObserver<ReceiveReply>) responseObserver;
+        clientManager.addClient(res);
     }
 
 }
