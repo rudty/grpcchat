@@ -20,27 +20,8 @@ public class MessageService extends MessageGrpc.MessageImplBase {
         this.clientManager = clientManager;
     }
 
-    private boolean isCutStatus(Status status) {
-        var code = status.getCode();
-        return code == Status.Code.CANCELLED ||
-                code == Status.Code.ABORTED ||
-                code == Status.Code.UNAUTHENTICATED ||
-                code == Status.Code.UNKNOWN ||
-                code == Status.Code.DEADLINE_EXCEEDED;
-    }
-
-    private void broadcastClient(ChatMessageResponse broadcastMessage) {
-        synchronized (this) {
-            clientManager.forEach(client -> {
-                try {
-                    client.onNext(broadcastMessage);
-                } catch (StatusRuntimeException e) {
-                    if (isCutStatus(e.getStatus())) {
-                        e.printStackTrace();
-                    }
-                }
-            });
-        }
+    private synchronized void broadcastClient(ChatMessageResponse broadcastMessage) {
+        clientManager.forEach(client -> client.onNext(broadcastMessage));
     }
 
     private void broadcastMessage(String message) {
@@ -62,8 +43,7 @@ public class MessageService extends MessageGrpc.MessageImplBase {
 
     @Override
     public StreamObserver<MessageRequest> clientMessage(StreamObserver<ChatMessageResponse> responseObserver) {
-        var r = (ServerCallStreamObserver)responseObserver;
-        var clientId = clientManager.addClient(r);
+        var clientId = clientManager.addClient(responseObserver);
 
         return new StreamObserver<MessageRequest>() {
             @Override
@@ -80,6 +60,7 @@ public class MessageService extends MessageGrpc.MessageImplBase {
 
             @Override
             public void onCompleted() {
+                System.out.println("complete");
 //                clientManager.removeClient(clientId);
             }
         };
