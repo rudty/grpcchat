@@ -9,9 +9,8 @@ package message;
 import "google/protobuf/empty.proto";
 // The greeting service definition.
 service Message {
-  rpc ClientHello(google.protobuf.Empty) returns (IdMessage) {}
-  rpc ClientBye(IdMessage) returns (google.protobuf.Empty) {}
   rpc ClientMessage(stream MessageRequest) returns (stream ChatMessageResponse) {}
+  rpc ClientBye(IdMessage) returns (google.protobuf.Empty) {}
 }
 
 message IdMessage {

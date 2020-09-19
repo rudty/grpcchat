@@ -7,16 +7,14 @@ import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
 import org.lognet.springboot.grpc.GRpcService;
 import org.rudtyz.grpcchat.dto.*;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
 
 @GRpcService
 public class MessageService extends MessageGrpc.MessageImplBase {
 
-    private final ClientManager clientManager;
     private final AtomicInteger messageId = new AtomicInteger();
+    private final ClientManager clientManager;
 
     public MessageService(ClientManager clientManager) {
         this.clientManager = clientManager;
@@ -31,11 +29,7 @@ public class MessageService extends MessageGrpc.MessageImplBase {
                 code == Status.Code.DEADLINE_EXCEEDED;
     }
 
-    private void broadcastMessage(String message) {
-        var broadcastMessage = ReceiveReply.newBuilder()
-                .setMessage(message)
-                .build();
-
+    private void broadcastClient(ChatMessageResponse broadcastMessage) {
         synchronized (this) {
             clientManager.forEach(client -> {
                 try {
@@ -49,24 +43,45 @@ public class MessageService extends MessageGrpc.MessageImplBase {
         }
     }
 
-    @Override
-    public void clientSend(SendRequest request, StreamObserver<SendReply> responseObserver) {
-        broadcastMessage(request.getMessage());
+    private void broadcastMessage(String message) {
+        var chatMessage = ChatMessageResponse.Message.newBuilder()
+                .setId(messageId.incrementAndGet())
+                .setMessage(message)
+                .build();
+        var broadcastMessage = ChatMessageResponse.newBuilder()
+                .setMessage(chatMessage)
+                .build();
 
-        responseObserver.onNext(
-                SendReply.newBuilder()
-                        .setMessageId(messageId.incrementAndGet())
-                        .build());
-        responseObserver.onCompleted();
+        broadcastClient(broadcastMessage);
+    }
+
+    @Override
+    public void clientBye(IdMessage request, StreamObserver<Empty> responseObserver) {
 
     }
 
     @Override
-    public synchronized void clientReceive(Empty request, StreamObserver<ReceiveReply> responseObserver) {
-        // 기본 구현 StreamObserver<ReceiveReply> 으로는
-        // 클라이언트와 연결이 종료될 시 알 수가 없어서
-        var res = (ServerCallStreamObserver<ReceiveReply>) responseObserver;
-        clientManager.addClient(res);
-    }
+    public StreamObserver<MessageRequest> clientMessage(StreamObserver<ChatMessageResponse> responseObserver) {
+        var r = (ServerCallStreamObserver)responseObserver;
+        var clientId = clientManager.addClient(r);
 
+        return new StreamObserver<MessageRequest>() {
+            @Override
+            public void onNext(MessageRequest value) {
+                String message = value.getMessage();
+                broadcastMessage(message);
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                System.out.println(t);
+//                clientManager.removeClient(clientId);
+            }
+
+            @Override
+            public void onCompleted() {
+//                clientManager.removeClient(clientId);
+            }
+        };
+    }
 }
