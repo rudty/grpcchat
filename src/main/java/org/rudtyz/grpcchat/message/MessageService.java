@@ -36,20 +36,32 @@ public class MessageService extends MessageGrpc.MessageImplBase {
         broadcastClient(broadcastMessage);
     }
 
+    private void broadcastHello(int clientId) {
+        var hello = ChatMessageResponse.Hello.newBuilder()
+                .setId(clientId)
+                .build();
+
+        var broadcastMessage = ChatMessageResponse.newBuilder()
+                .setHello(hello)
+                .build();
+
+        broadcastClient(broadcastMessage);
+    }
+
     @Override
     public void clientBye(IdMessage request, StreamObserver<Empty> responseObserver) {
-
+        clientManager.removeClient(request.getId());
     }
 
     @Override
     public StreamObserver<MessageRequest> clientMessage(StreamObserver<ChatMessageResponse> responseObserver) {
         var clientId = clientManager.addClient(responseObserver);
-
+        broadcastHello(clientId);
         return new StreamObserver<MessageRequest>() {
             @Override
             public void onNext(MessageRequest value) {
                 String message = value.getMessage();
-                broadcastMessage(message);
+                broadcastMessage(clientId + " " + message);
             }
 
             @Override

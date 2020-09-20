@@ -20,8 +20,14 @@ func receiveMessage(m Message_ClientMessageClient) {
 			log.Fatalf("did not connect: %v", err)
 		}
 		chat := msg.GetMessage()
-		msgString := chat.GetMessage()
-		log.Println(msgString)
+		if chat != nil {
+			msgString := chat.GetMessage()
+			log.Println(msgString)
+		}
+		hello := msg.GetHello()
+		if hello != nil {
+			log.Printf("Hello %d\n", hello.GetId())
+		}
 	}
 }
 
@@ -29,7 +35,7 @@ func sendMessage(m Message_ClientMessageClient) {
 	id := 0
 	for {
 		m.Send(&MessageRequest{
-			Message: fmt.Sprintf("hello %v", id),
+			Message: fmt.Sprintf("msg %v", id),
 		})
 		id++
 		time.Sleep(1 * time.Second)
