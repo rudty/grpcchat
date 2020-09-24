@@ -17,16 +17,19 @@ func receiveMessage(m Message_ClientMessageClient) {
 	for {
 		msg, err := m.Recv()
 		if err != nil {
-			log.Fatalf("did not connect: %v", err)
+			log.Printf("did not connect: %v\n", err)
+			return
 		}
-		chat := msg.GetMessage()
-		if chat != nil {
-			msgString := chat.GetMessage()
+
+		// oneof
+		switch m := msg.GetM().(type) {
+		case *ChatMessageResponse_Message_:
+			msgString := m.Message.GetMessage()
 			log.Println(msgString)
-		}
-		hello := msg.GetHello()
-		if hello != nil {
-			log.Printf("Hello %d\n", hello.GetId())
+		case *ChatMessageResponse_Hello_:
+			log.Printf("Hello %d\n", m.Hello.GetId())
+		case *ChatMessageResponse_Bye_:
+			log.Printf("bye %d\n", m.Bye.GetId())
 		}
 	}
 }
@@ -60,7 +63,7 @@ func newClient() {
 }
 
 func main() {
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 3; i++ {
 		go newClient()
 	}
 	newClient()
