@@ -1,12 +1,12 @@
 package org.rudtyz.grpcchat.message;
 
 import com.google.protobuf.Empty;
-import io.grpc.Status;
-import io.grpc.StatusRuntimeException;
-import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
 import org.lognet.springboot.grpc.GRpcService;
-import org.rudtyz.grpcchat.dto.*;
+import org.rudtyz.grpcchat.dto.ChatMessageResponse;
+import org.rudtyz.grpcchat.dto.IdMessage;
+import org.rudtyz.grpcchat.dto.MessageGrpc;
+import org.rudtyz.grpcchat.dto.MessageRequest;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -20,7 +20,7 @@ public class MessageService extends MessageGrpc.MessageImplBase {
         this.clientManager = clientManager;
     }
 
-    private synchronized void broadcastClient(ChatMessageResponse broadcastMessage) {
+    private void broadcastClient(ChatMessageResponse broadcastMessage) {
         clientManager.forEach(client -> client.onNext(broadcastMessage));
     }
 
@@ -48,6 +48,18 @@ public class MessageService extends MessageGrpc.MessageImplBase {
         broadcastClient(broadcastMessage);
     }
 
+    private void broadcastBye(int clientId) {
+        var bye = ChatMessageResponse.Bye.newBuilder()
+                .setId(clientId)
+                .build();
+
+        var broadcastMessage = ChatMessageResponse.newBuilder()
+                .setBye(bye)
+                .build();
+
+        broadcastClient(broadcastMessage);
+    }
+
     @Override
     public void clientBye(IdMessage request, StreamObserver<Empty> responseObserver) {
         clientManager.removeClient(request.getId());
@@ -67,13 +79,13 @@ public class MessageService extends MessageGrpc.MessageImplBase {
             @Override
             public void onError(Throwable t) {
                 System.out.println(t);
-//                clientManager.removeClient(clientId);
+                broadcastBye(clientId);
             }
 
             @Override
             public void onCompleted() {
                 System.out.println("complete");
-//                clientManager.removeClient(clientId);
+                broadcastBye(clientId);
             }
         };
     }
