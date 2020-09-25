@@ -30,11 +30,9 @@ public class ClientManager {
 
     private class ClientDisconnectHandler implements Runnable {
         private int clientId;
-        private ServerCallStreamObserver client;
 
-        public ClientDisconnectHandler(int clientId, ServerCallStreamObserver client) {
+        public ClientDisconnectHandler(int clientId) {
             this.clientId = clientId;
-            this.client = client;
         }
 
         @Override
@@ -83,7 +81,7 @@ public class ClientManager {
         synchronized (this) {
             clients.put(newId, client);
         }
-        client.setOnCancelHandler(new ClientDisconnectHandler(newId, client));
+        client.setOnCancelHandler(new ClientDisconnectHandler(newId));
         return newId;
     }
 
